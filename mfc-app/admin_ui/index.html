@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MFC Vysočina — Admin</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --border: #334155;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --success: #10b981;
+    --warn: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  .me { font-size: 14px; color: var(--muted); }
+  .me strong { color: var(--text); }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 15px;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--muted); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.03); }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.btn-danger { background: var(--danger); }
+  button.btn-danger:hover { background: var(--danger-hover); }
+  button.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button.btn-ghost:hover { background: var(--border); }
+  button.btn-small { padding: 5px 10px; font-size: 12px; }
+  select, input[type=text], input[type=password], input[type=email], textarea {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    width: 100%;
+  }
+  select:focus, input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .login-box {
+    max-width: 400px;
+    margin: 80px auto;
+    padding: 32px;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .login-box h2 { margin-top: 0; }
+  .login-box label { display: block; margin: 12px 0 6px; font-size: 14px; color: var(--muted); }
+  .login-box button { width: 100%; margin-top: 20px; padding: 12px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-admin { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+  .badge-captain { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+  .badge-member { background: rgba(148, 163, 184, 0.2); color: var(--muted); }
+  .badge-custom { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+  .badge-inactive { background: rgba(100,100,100,0.3); color: #aaa; }
+  .badge-active { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+  .actions { display: flex; gap: 6px; }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--success);
+    padding: 12px 18px;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 1000;
+    max-width: 350px;
+  }
+  .toast.error { border-left-color: var(--danger); }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 24px;
+  }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 700px;
+    width: 100%;
+    max-height: 85vh;
+    overflow: auto;
+  }
+  .modal h3 { margin-top: 0; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .perm-group { margin: 16px 0; }
+  .perm-group h4 { margin: 0 0 8px; color: var(--muted); font-size: 13px; text-transform: uppercase; }
+  .perm-item { display: flex; align-items: center; padding: 6px 0; gap: 10px; }
+  .perm-item input[type=checkbox] {
+    width: 18px; height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .perm-item label { cursor: pointer; flex: 1; }
+  .perm-key { color: var(--muted); font-size: 12px; font-family: monospace; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .role-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .role-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .role-card-header h3 { margin: 0; font-size: 18px; }
+  .role-meta { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .role-perms { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="login-screen" style="display:none">
+  <div class="login-box">
+    <h2>MFC Admin — přihlášení</h2>
+    <label for="login-username">Uživatelské jméno nebo email</label>
+    <input id="login-username" type="text" autocomplete="username">
+    <label for="login-password">Heslo</label>
+    <input id="login-password" type="password" autocomplete="current-password">
+    <button onclick="doLogin()">Přihlásit</button>
+    <div id="login-error" style="color: var(--danger); margin-top:12px; font-size:14px;"></div>
+  </div>
+</div>
+
+<div id="app-screen" style="display:none">
+  <header>
+    <h1>MFC Vysočina — Admin Panel</h1>
+    <div class="me">
+      Přihlášen jako <strong id="me-username"></strong>
+      (<span id="me-role" class="badge"></span>)
+      <button class="btn-ghost btn-small" onclick="doLogout()" style="margin-left:12px">Odhlásit</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" data-tab="users" onclick="switchTab('users')">Uživatelé</button>
+      <button class="tab" data-tab="roles" onclick="switchTab('roles')">Role &amp; oprávnění</button>
+    </div>
+
+    <!-- Users tab -->
+    <div id="tab-users" class="tab-content panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="margin:0">Uživatelé</h2>
+        <button onclick="loadUsers()" class="btn-ghost btn-small">Obnovit</button>
+      </div>
+      <table id="users-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Uživatel</th>
+            <th>Email</th>
+            <th>Jméno</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Akce</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Roles tab -->
+    <div id="tab-roles" class="tab-content panel" style="display:none">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="margin:0">Role &amp; oprávnění</h2>
+        <button onclick="openRoleModal(null)">+ Vytvořit roli</button>
+      </div>
+      <div id="roles-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal container -->
+<div id="modal-container"></div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+const API_BASE = window.location.origin;
+let token = localStorage.getItem('mfc_admin_token') || null;
+let me = null;
+let permissionsCatalog = [];
+
+// ─── HTTP helpers ─────────────────────────────────────────────────────
+
+async function api(path, opts = {}) {
+  opts.headers = opts.headers || {};
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+  if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(API_BASE + path, opts);
+  if (res.status === 401) {
+    logout();
+    throw new Error('Neautorizováno');
+  }
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try { const j = await res.json(); detail = j.detail || detail; } catch {}
+    throw new Error(detail);
+  }
+  if (res.status === 204) return null;
+  return await res.json();
+}
+
+function toast(msg, isError = false) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (isError ? ' error' : '');
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!username || !password) {
+    errEl.textContent = 'Vyplň jméno i heslo';
+    return;
+  }
+  try {
+    const res = await fetch(API_BASE + '/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      errEl.textContent = j.detail || 'Přihlášení selhalo';
+      return;
+    }
+    const data = await res.json();
+    token = data.access_token;
+    localStorage.setItem('mfc_admin_token', token);
+    await initApp();
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+function doLogout() { logout(); }
+function logout() {
+  token = null;
+  localStorage.removeItem('mfc_admin_token');
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = '';
+  document.getElementById('app-screen').style.display = 'none';
+}
+
+async function initApp() {
+  try {
+    me = await api('/auth/me');
+    const perms = await api('/auth/me/permissions');
+    me.permissions = perms.permissions;
+  } catch (e) {
+    logout();
+    return;
+  }
+  document.getElementById('me-username').textContent = me.username;
+  const roleEl = document.getElementById('me-role');
+  roleEl.textContent = me.role;
+  roleEl.className = 'badge ' + roleClass(me.role);
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = '';
+
+  if (!me.permissions.includes('users.list') && !me.permissions.includes('roles.manage')) {
+    document.querySelector('.container').innerHTML = '<div class="empty">Nemáš oprávnění pro admin panel.</div>';
+    return;
+  }
+
+  await loadUsers();
+  // Pre-load permissions catalog if user can manage roles
+  if (me.permissions.includes('roles.manage')) {
+    try { permissionsCatalog = await api('/admin/permissions'); } catch {}
+  }
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+  document.getElementById('tab-' + name).style.display = '';
+  if (name === 'roles') loadRoles();
+  if (name === 'users') loadUsers();
+}
+
+// ─── Users ────────────────────────────────────────────────────────────
+
+function roleClass(role) {
+  if (role === 'admin') return 'badge-admin';
+  if (role === 'captain') return 'badge-captain';
+  if (role === 'member') return 'badge-member';
+  return 'badge-custom';
+}
+
+let cachedRoles = [];
+
+async function loadUsers() {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" class="empty">Načítám…</td></tr>';
+  try {
+    const [users, roles] = await Promise.all([
+      api('/admin/users'),
+      api('/admin/roles').catch(() => []),  // may fail if no roles.manage
+    ]);
+    cachedRoles = roles;
+    renderUsers(users, roles);
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">Chyba: ${e.message}</td></tr>`;
+  }
+}
+
+function renderUsers(users, roles) {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '';
+  for (const u of users) {
+    const tr = document.createElement('tr');
+    const roleNames = roles.length ? roles.map(r => r.name) : ['admin', 'captain', 'member'];
+    const roleOptions = roleNames.map(n =>
+      `<option value="${n}" ${n === u.role ? 'selected' : ''}>${n}</option>`
+    ).join('');
+    const isMe = me && me.id === u.id;
+    tr.innerHTML = `
+      <td>${u.id}</td>
+      <td><strong>${escapeHtml(u.username)}</strong>${isMe ? ' <span style="color:var(--muted)">(ty)</span>' : ''}</td>
+      <td style="color:var(--muted)">${escapeHtml(u.email)}</td>
+      <td>${escapeHtml(u.full_name || '')}</td>
+      <td>
+        <select onchange="changeRole(${u.id}, this.value, '${u.role}')" ${isMe && u.role === 'admin' ? 'disabled' : ''}>
+          ${roleOptions}
+        </select>
+      </td>
+      <td>
+        <span class="badge ${u.is_active ? 'badge-active' : 'badge-inactive'}">${u.is_active ? 'aktivní' : 'deaktivován'}</span>
+      </td>
+      <td>
+        <div class="actions">
+          ${!isMe ? `<button class="btn-ghost btn-small" onclick="toggleActive(${u.id}, ${!u.is_active})">${u.is_active ? 'Deaktivovat' : 'Aktivovat'}</button>` : ''}
+          ${!isMe ? `<button class="btn-danger btn-small" onclick="deleteUser(${u.id}, '${escapeHtml(u.username).replace(/'/g, "\\'")}')">Smazat</button>` : ''}
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+  if (users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Žádní uživatelé</td></tr>';
+  }
+}
+
+async function changeRole(userId, newRole, oldRole) {
+  if (newRole === oldRole) return;
+  if (!confirm(`Změnit roli uživatele ID ${userId} z "${oldRole}" na "${newRole}"?`)) {
+    loadUsers();
+    return;
+  }
+  try {
+    await api(`/admin/users/${userId}`, {method: 'PATCH', body: {role: newRole}});
+    toast(`Role změněna na ${newRole}`);
+    loadUsers();
+  } catch (e) {
+    toast(e.message, true);
+    loadUsers();
+  }
+}
+
+async function toggleActive(userId, newActive) {
+  try {
+    await api(`/admin/users/${userId}`, {method: 'PATCH', body: {is_active: newActive}});
+    toast(newActive ? 'Uživatel aktivován' : 'Uživatel deaktivován');
+    loadUsers();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteUser(userId, username) {
+  if (!confirm(`Opravdu smazat uživatele "${username}"?\n\nSmaže se i jeho obsah (posty, RSVP, zprávy, členství ve skupinách).\n\nTato akce je nevratná.`)) return;
+  try {
+    await api(`/admin/users/${userId}`, {method: 'DELETE'});
+    toast('Uživatel smazán');
+    loadUsers();
+  } catch (e) { toast(e.message, true); }
+}
+
+// ─── Roles ────────────────────────────────────────────────────────────
+
+async function loadRoles() {
+  const list = document.getElementById('roles-list');
+  list.innerHTML = '<div class="empty">Načítám…</div>';
+  try {
+    const [roles, perms] = await Promise.all([
+      api('/admin/roles'),
+      permissionsCatalog.length ? permissionsCatalog : api('/admin/permissions'),
+    ]);
+    permissionsCatalog = perms;
+    renderRoles(roles);
+  } catch (e) {
+    list.innerHTML = `<div class="empty">Chyba: ${e.message}</div>`;
+  }
+}
+
+function renderRoles(roles) {
+  const list = document.getElementById('roles-list');
+  list.innerHTML = '';
+  for (const r of roles) {
+    const card = document.createElement('div');
+    card.className = 'role-card';
+    const isAdmin = r.name === 'admin';
+    card.innerHTML = `
+      <div class="role-card-header">
+        <h3>
+          <span class="badge ${roleClass(r.name)}">${escapeHtml(r.name)}</span>
+          ${r.is_system ? '<span class="badge badge-member" style="margin-left:8px">systémová</span>' : ''}
+        </h3>
+        <div class="actions">
+          <button class="btn-ghost btn-small" onclick='openRoleModal(${JSON.stringify(r)})'>Upravit</button>
+          ${!r.is_system ? `<button class="btn-danger btn-small" onclick="deleteRole(${r.id}, '${escapeHtml(r.name).replace(/'/g,"\\'")}')">Smazat</button>` : ''}
+        </div>
+      </div>
+      <div class="role-meta">${escapeHtml(r.description || '')} • <strong>${r.user_count}</strong> uživatelů • <strong>${r.permissions.length}</strong> oprávnění</div>
+      <div class="role-perms">${isAdmin ? '<em>Admin má vždy všechna oprávnění (nelze omezit)</em>' : (r.permissions.length ? r.permissions.map(p => `<code style="background:rgba(255,255,255,0.05); padding:1px 5px; border-radius:3px; margin:2px; display:inline-block; font-size:11px;">${p}</code>`).join(' ') : '<em>Žádná oprávnění</em>')}</div>
+    `;
+    list.appendChild(card);
+  }
+}
+
+function openRoleModal(role) {
+  const isNew = !role;
+  const groups = {};
+  for (const p of permissionsCatalog) {
+    if (!groups[p.group]) groups[p.group] = [];
+    groups[p.group].push(p);
+  }
+  const isAdmin = role && role.name === 'admin';
+  const currentPerms = new Set(role ? role.permissions : []);
+
+  let permsHtml = '';
+  for (const groupName of Object.keys(groups)) {
+    permsHtml += `<div class="perm-group"><h4>${escapeHtml(groupName)}</h4>`;
+    for (const p of groups[groupName]) {
+      const checked = currentPerms.has(p.key) ? 'checked' : '';
+      permsHtml += `
+        <div class="perm-item">
+          <input type="checkbox" id="perm_${p.key}" data-key="${p.key}" ${checked} ${isAdmin ? 'disabled' : ''}>
+          <label for="perm_${p.key}">${escapeHtml(p.description)} <span class="perm-key">${p.key}</span></label>
+        </div>
+      `;
+    }
+    permsHtml += '</div>';
+  }
+
+  const modal = document.getElementById('modal-container');
+  modal.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>${isNew ? 'Nová role' : 'Upravit roli'}</h3>
+        <label style="font-size:14px; color:var(--muted)">Název role</label>
+        <input id="role-name" type="text" value="${role ? escapeHtml(role.name) : ''}" ${role ? 'disabled' : ''} placeholder="napr. moderator">
+        <label style="font-size:14px; color:var(--muted); margin-top:12px; display:block">Popis</label>
+        <input id="role-desc" type="text" value="${role ? escapeHtml(role.description || '') : ''}" placeholder="Krátký popis role">
+        <div style="margin-top:16px"><strong>Oprávnění</strong></div>
+        ${isAdmin ? '<p style="color:var(--warn)">⚠️ Admin role má vždy všechna oprávnění a nelze ji omezit (zabezpečení proti vyřazení sebe sama).</p>' : ''}
+        <div style="max-height:50vh; overflow:auto; margin-top:8px;">${permsHtml}</div>
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeModal()">Zrušit</button>
+          <button onclick="saveRole(${isNew ? 'null' : role.id}, ${isAdmin})">${isNew ? 'Vytvořit' : 'Uložit'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function closeModal() {
+  document.getElementById('modal-container').innerHTML = '';
+}
+
+async function saveRole(roleId, isAdminRole) {
+  const name = document.getElementById('role-name').value.trim();
+  const desc = document.getElementById('role-desc').value.trim();
+  const perms = Array.from(document.querySelectorAll('.perm-item input[type=checkbox]:checked')).map(c => c.dataset.key);
+
+  try {
+    if (roleId === null) {
+      if (!name) { toast('Vyplň název role', true); return; }
+      await api('/admin/roles', {method: 'POST', body: {name, description: desc, permissions: perms}});
+      toast('Role vytvořena');
+    } else {
+      const body = {description: desc};
+      if (!isAdminRole) body.permissions = perms;
+      await api(`/admin/roles/${roleId}`, {method: 'PATCH', body});
+      toast('Role uložena');
+    }
+    closeModal();
+    loadRoles();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteRole(roleId, name) {
+  if (!confirm(`Smazat roli "${name}"? Uživatelé s touto rolí budou převedeni na "member".`)) return;
+  try {
+    await api(`/admin/roles/${roleId}`, {method: 'DELETE'});
+    toast('Role smazána');
+    loadRoles();
+    loadUsers();
+  } catch (e) { toast(e.message, true); }
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// Bootstrap
+if (token) {
+  initApp();
+} else {
+  showLogin();
+}
+</script>
+</body>
+</html>
