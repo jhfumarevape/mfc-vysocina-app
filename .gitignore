@@ -1,0 +1,82 @@
+# ─── OS / Editor ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ─── Python (mfc-app backend) ────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.env
+.env.local
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ─── Database & logs (NEVER commit user data) ────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+server.log
+*.log
+
+# ─── Uploaded user files ─────────────────────────────────────────────
+mfc-app/uploads/*
+!mfc-app/uploads/.gitkeep
+
+# ─── Flutter (mfc_app) ───────────────────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.iml
+
+# Android specific
+mfc_app/android/.gradle/
+mfc_app/android/captures/
+mfc_app/android/app/release/
+mfc_app/android/local.properties
+mfc_app/android/key.properties
+mfc_app/android/app/upload-keystore.jks
+mfc_app/android/app/google-services.json
+
+# iOS specific
+mfc_app/ios/Pods/
+mfc_app/ios/.symlinks/
+mfc_app/ios/Flutter/Flutter.framework
+mfc_app/ios/Flutter/Flutter.podspec
+mfc_app/ios/Flutter/App.framework
+mfc_app/ios/Flutter/flutter_assets/
+mfc_app/ios/Flutter/Generated.xcconfig
+mfc_app/ios/Flutter/ephemeral/
+mfc_app/ios/Runner/GeneratedPluginRegistrant.*
+mfc_app/ios/Runner/GoogleService-Info.plist
+
+# Web build
+mfc_app/web/firebase-config.js
+
+# ─── APK / build outputs ─────────────────────────────────────────────
+*.apk
+*.aab
+*.ipa
+
+# ─── Claude Code / settings ──────────────────────────────────────────
+.claude/settings.local.json
+
+# ─── Misc ────────────────────────────────────────────────────────────
+/tmp/
+*.tar.gz
+*.zip
