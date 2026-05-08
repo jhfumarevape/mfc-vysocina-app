@@ -50,8 +50,10 @@ mfc_app/android/captures/
 mfc_app/android/app/release/
 mfc_app/android/local.properties
 mfc_app/android/key.properties
+mfc_app/android/upload-keystore.jks
 mfc_app/android/app/upload-keystore.jks
 mfc_app/android/app/google-services.json
+.keystore-tmp/
 
 # iOS specific
 mfc_app/ios/Pods/
