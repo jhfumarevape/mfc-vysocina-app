@@ -47,14 +47,16 @@ jobs:
             echo "::warning::No keystore secret — will fall back to debug signing."
             exit 0
           fi
-          echo "$KEYSTORE_B64" | base64 -d > android/upload-keystore.jks
+          # storeFile v build.gradle je relativní k modulu app/, takže
+          # JKS musí žít přímo v app/, key.properties v root projektu.
+          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
           cat > android/key.properties <<EOF
           storeFile=upload-keystore.jks
           storePassword=$KEYSTORE_PASSWORD
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
           EOF
-          echo "Keystore set up."
+          echo "Keystore set up at android/app/upload-keystore.jks"
 
       - name: Read app version
         id: ver
