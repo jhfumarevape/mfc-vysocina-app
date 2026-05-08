@@ -185,9 +185,10 @@ async def ws_chat(websocket: WebSocket, group_id: int, token: str):
             while True:
                 data = await websocket.receive_json()
                 content = (data.get("content") or "").strip()
-                if not content:
-                    continue
                 image_url = data.get("image_url")
+                # Either text or image required — empty messages are skipped.
+                if not content and not image_url:
+                    continue
 
                 msg = Message(
                     group_id=group_id, author_id=user.id,

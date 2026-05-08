@@ -1,6 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -28,6 +32,7 @@ class _ChatScreenState extends State<ChatScreen> {
   WebSocketChannel? _ws;
   bool _loading = true;
   bool _sending = false;
+  XFile? _picked;
 
   @override
   void initState() {
@@ -67,13 +72,65 @@ class _ChatScreenState extends State<ChatScreen> {
     }, onError: (_) {}, onDone: () {});
   }
 
+  Future<void> _pickPhoto({required ImageSource source}) async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(source: source, maxWidth: 2000, imageQuality: 85);
+      if (file != null) setState(() => _picked = file);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Nelze vybrat fotku: $e')));
+    }
+  }
+
+  void _showPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!kIsWeb)
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: AppTheme.primary),
+                title: const Text('Vyfotit'),
+                onTap: () { Navigator.pop(context); _pickPhoto(source: ImageSource.camera); },
+              ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: AppTheme.primary),
+              title: const Text('Z galerie'),
+              onTap: () { Navigator.pop(context); _pickPhoto(source: ImageSource.gallery); },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty || _sending) return;
+    if ((text.isEmpty && _picked == null) || _sending) return;
     setState(() => _sending = true);
     try {
-      _ws?.sink.add(jsonEncode({'content': text}));
+      String? imageUrl;
+      if (_picked != null) {
+        final api = context.read<ApiClient>();
+        if (kIsWeb) {
+          final bytes = await _picked!.readAsBytes();
+          imageUrl = (await api.uploadImageBytes(bytes, _picked!.name))['url'] as String?;
+        } else {
+          imageUrl = (await api.uploadImage(File(_picked!.path)))['url'] as String?;
+        }
+      }
+      _ws?.sink.add(jsonEncode({
+        'content': text,
+        if (imageUrl != null) 'image_url': imageUrl,
+      }));
       _input.clear();
+      setState(() => _picked = null);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chyba: $e'), backgroundColor: AppTheme.danger));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -121,7 +178,51 @@ class _ChatScreenState extends State<ChatScreen> {
                   },
                 ),
           ),
-          _Composer(controller: _input, sending: _sending, onSend: _send),
+          if (_picked != null) _PickedPreview(picked: _picked!, onRemove: () => setState(() => _picked = null)),
+          _Composer(
+            controller: _input,
+            sending: _sending,
+            onSend: _send,
+            onPickPhoto: _showPickerSheet,
+            onChange: () => setState(() {}),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PickedPreview extends StatelessWidget {
+  final XFile picked;
+  final VoidCallback onRemove;
+  const _PickedPreview({required this.picked, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.surface,
+        border: Border(top: BorderSide(color: AppTheme.border)),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 56, height: 56,
+              child: kIsWeb
+                ? Image.network(picked.path, fit: BoxFit.cover)
+                : Image.file(File(picked.path), fit: BoxFit.cover),
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('Připravená fotka', style: TextStyle(color: AppTheme.textMuted))),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: onRemove,
+            tooltip: 'Odebrat',
+          ),
         ],
       ),
     );
@@ -137,6 +238,8 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final df = DateFormat('HH:mm');
+    final hasImage = message.imageUrl != null && message.imageUrl!.isNotEmpty;
+    final hasText = message.content.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
       child: Row(
@@ -150,7 +253,9 @@ class _MessageBubble extends StatelessWidget {
           Flexible(
             child: Container(
               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: hasImage && !hasText
+                  ? const EdgeInsets.all(4)
+                  : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: isMe ? AppTheme.primary : AppTheme.surface,
                 borderRadius: BorderRadius.only(
@@ -163,17 +268,46 @@ class _MessageBubble extends StatelessWidget {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!isMe && showAvatar)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
                       child: Text(message.author.displayName,
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted)),
                     ),
-                  Text(message.content,
-                    style: TextStyle(color: isMe ? Colors.white : AppTheme.text, fontSize: 14)),
-                  Text(df.format(message.createdAt),
-                    style: TextStyle(color: isMe ? Colors.white70 : AppTheme.textMuted, fontSize: 10)),
+                  if (hasImage)
+                    GestureDetector(
+                      onTap: () => _openFullscreen(context, message.imageUrl!),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: CachedNetworkImage(
+                          imageUrl: ApiClient.absoluteUrl(message.imageUrl),
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            height: 200, width: 280,
+                            color: AppTheme.surfaceAlt,
+                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary)),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
+                            height: 200, width: 280,
+                            color: AppTheme.surfaceAlt,
+                            child: const Icon(Icons.broken_image_outlined, color: AppTheme.textMuted),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (hasText)
+                    Padding(
+                      padding: hasImage ? const EdgeInsets.fromLTRB(8, 6, 8, 4) : EdgeInsets.zero,
+                      child: Text(message.content,
+                        style: TextStyle(color: isMe ? Colors.white : AppTheme.text, fontSize: 14)),
+                    ),
+                  Padding(
+                    padding: hasImage ? const EdgeInsets.fromLTRB(8, 0, 8, 4) : EdgeInsets.zero,
+                    child: Text(df.format(message.createdAt),
+                      style: TextStyle(color: isMe ? Colors.white70 : AppTheme.textMuted, fontSize: 10)),
+                  ),
                 ],
               ),
             ),
@@ -182,13 +316,35 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
   }
+
+  void _openFullscreen(BuildContext context, String url) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white),
+        body: Center(
+          child: InteractiveViewer(
+            child: CachedNetworkImage(imageUrl: ApiClient.absoluteUrl(url)),
+          ),
+        ),
+      ),
+    ));
+  }
 }
 
 class _Composer extends StatelessWidget {
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
-  const _Composer({required this.controller, required this.sending, required this.onSend});
+  final VoidCallback onPickPhoto;
+  final VoidCallback onChange;
+  const _Composer({
+    required this.controller,
+    required this.sending,
+    required this.onSend,
+    required this.onPickPhoto,
+    required this.onChange,
+  });
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -196,13 +352,19 @@ class _Composer extends StatelessWidget {
         color: AppTheme.surface,
         border: Border(top: BorderSide(color: AppTheme.border)),
       ),
-      padding: EdgeInsets.fromLTRB(8, 8, 8, MediaQuery.of(context).viewPadding.bottom + 8),
+      padding: EdgeInsets.fromLTRB(4, 4, 8, MediaQuery.of(context).viewPadding.bottom + 4),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            tooltip: 'Přidat fotku',
+            onPressed: sending ? null : onPickPhoto,
+          ),
           Expanded(
             child: TextField(
               controller: controller,
               minLines: 1, maxLines: 4,
+              onChanged: (_) => onChange(),
               decoration: const InputDecoration(
                 hintText: 'Napiš zprávu...',
                 contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -213,7 +375,9 @@ class _Composer extends StatelessWidget {
           const SizedBox(width: 6),
           IconButton.filled(
             onPressed: sending ? null : onSend,
-            icon: const Icon(Icons.send, size: 18),
+            icon: sending
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.send, size: 18),
             style: IconButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
           ),
         ],

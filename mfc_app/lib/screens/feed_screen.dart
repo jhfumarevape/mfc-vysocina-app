@@ -1,7 +1,11 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/theme.dart';
 import '../models/post.dart';
@@ -186,16 +190,75 @@ class _NewPostScreen extends StatefulWidget {
 class _NewPostScreenState extends State<_NewPostScreen> {
   final _content = TextEditingController();
   bool _busy = false;
+  XFile? _picked;
+
+  Future<void> _pickPhoto({required ImageSource source}) async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(source: source, maxWidth: 2000, imageQuality: 85);
+      if (file != null) setState(() => _picked = file);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Nelze vybrat fotku: $e')));
+      }
+    }
+  }
+
+  void _showPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!kIsWeb)
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: AppTheme.primary),
+                title: const Text('Vyfotit'),
+                onTap: () { Navigator.pop(context); _pickPhoto(source: ImageSource.camera); },
+              ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: AppTheme.primary),
+              title: const Text('Z galerie'),
+              onTap: () { Navigator.pop(context); _pickPhoto(source: ImageSource.gallery); },
+            ),
+            if (_picked != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: AppTheme.danger),
+                title: const Text('Odstranit fotku', style: TextStyle(color: AppTheme.danger)),
+                onTap: () { Navigator.pop(context); setState(() => _picked = null); },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _submit() async {
-    if (_content.text.trim().isEmpty) return;
+    final text = _content.text.trim();
+    if (text.isEmpty && _picked == null) return;
     setState(() => _busy = true);
     try {
-      await context.read<ApiClient>().post('/posts', {'content': _content.text.trim()});
+      final api = context.read<ApiClient>();
+      String? imageUrl;
+      if (_picked != null) {
+        if (kIsWeb) {
+          final bytes = await _picked!.readAsBytes();
+          imageUrl = (await api.uploadImageBytes(bytes, _picked!.name))['url'] as String?;
+        } else {
+          imageUrl = (await api.uploadImage(File(_picked!.path)))['url'] as String?;
+        }
+      }
+      await api.post('/posts', {
+        'content': text,
+        if (imageUrl != null) 'image_url': imageUrl,
+      });
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chyba: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chyba: $e'), backgroundColor: AppTheme.danger));
         setState(() => _busy = false);
       }
     }
@@ -203,28 +266,92 @@ class _NewPostScreenState extends State<_NewPostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canSubmit = !_busy && (_content.text.trim().isNotEmpty || _picked != null);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nový příspěvek'),
         actions: [
           TextButton(
-            onPressed: _busy ? null : _submit,
-            child: const Text('Odeslat', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
+            onPressed: canSubmit ? _submit : null,
+            child: _busy
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary))
+              : const Text('Odeslat', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: TextField(
-          controller: _content,
-          autofocus: true,
-          maxLines: null,
-          decoration: const InputDecoration(
-            hintText: 'Co je nového v týmu?',
-            border: InputBorder.none,
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _content,
+                autofocus: true,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: const InputDecoration(
+                  hintText: 'Co je nového v týmu?',
+                  border: InputBorder.none,
+                ),
+                style: const TextStyle(fontSize: 16),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
           ),
-          style: const TextStyle(fontSize: 16),
-        ),
+          if (_picked != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: kIsWeb
+                      ? Image.network(_picked!.path, height: 220, width: double.infinity, fit: BoxFit.cover)
+                      : Image.file(File(_picked!.path), height: 220, width: double.infinity, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => setState(() => _picked = null),
+                        child: const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(Icons.close, size: 18, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Toolbar dole — přidat fotku
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AppTheme.border)),
+            ),
+            padding: EdgeInsets.fromLTRB(8, 4, 8, MediaQuery.of(context).viewPadding.bottom + 4),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  tooltip: 'Přidat fotku',
+                  onPressed: _busy ? null : _showPickerSheet,
+                ),
+                const Spacer(),
+                if (_picked != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text('1 fotka', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -87,9 +87,25 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> uploadImage(File file) async {
+    if (AppConfig.previewMode) {
+      return {'url': '/uploads/preview-fake.jpg'}; // fake response in preview
+    }
     final req = http.MultipartRequest('POST', _uri('/upload/image'));
     if (_token != null) req.headers['Authorization'] = 'Bearer $_token';
     req.files.add(await http.MultipartFile.fromPath('file', file.path));
+    final streamed = await req.send();
+    final resp = await http.Response.fromStream(streamed);
+    return _decode(resp) as Map<String, dynamic>;
+  }
+
+  /// Web alternativa — nahrání z byte bufferu (image_picker na webu nedává cestu).
+  Future<Map<String, dynamic>> uploadImageBytes(List<int> bytes, String filename) async {
+    if (AppConfig.previewMode) {
+      return {'url': '/uploads/preview-fake.jpg'};
+    }
+    final req = http.MultipartRequest('POST', _uri('/upload/image'));
+    if (_token != null) req.headers['Authorization'] = 'Bearer $_token';
+    req.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
     final streamed = await req.send();
     final resp = await http.Response.fromStream(streamed);
     return _decode(resp) as Map<String, dynamic>;

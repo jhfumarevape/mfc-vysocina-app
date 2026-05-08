@@ -22,11 +22,15 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             raise HTTPException(400, "Toto uživatelské jméno už existuje")
         raise HTTPException(400, "Tento email už je zaregistrovaný")
 
+    # První registrovaný uživatel se automaticky stává adminem (bootstrap).
+    is_first_user = db.query(User).count() == 0
+
     user = User(
         username=payload.username,
         email=payload.email,
         password_hash=hash_password(payload.password),
         full_name=payload.full_name,
+        role="admin" if is_first_user else "member",
     )
     db.add(user)
     db.flush()  # get user.id
