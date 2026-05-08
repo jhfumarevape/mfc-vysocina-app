@@ -5,4 +5,8 @@ class AppConfig {
   static const String wsBaseUrl  = 'wss://lafayette-plaintiff-underlying-band.trycloudflare.com';
 
   static const String appName = 'MFC Vysočina';
+
+  /// Preview/dev režim — přeskočí login a pustí tě dovnitř s fake uživatelem.
+  /// !!! Před releasem na false !!!
+  static const bool previewMode = true;
 }

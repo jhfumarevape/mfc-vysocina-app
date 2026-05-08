@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/config.dart';
 import '../models/user.dart';
 import 'api_client.dart';
 
@@ -31,6 +32,30 @@ class AuthService extends ChangeNotifier {
 
   /// Restore token from disk on app start, validate by hitting /auth/me.
   Future<void> bootstrap() async {
+    // Preview/dev režim — fake uživatel, žádné API volání.
+    if (AppConfig.previewMode) {
+      _user = User(
+        id: 1,
+        username: 'preview',
+        email: 'preview@mfc-vysocina.cz',
+        fullName: 'Preview Uživatel',
+        role: 'admin',
+        avatarUrl: null,
+        bio: 'Toto je preview režim — pro vývoj UI bez backendu.',
+        createdAt: DateTime.now().subtract(const Duration(days: 30)),
+        lastSeen: DateTime.now(),
+      );
+      _permissions = {
+        'posts.create', 'posts.delete', 'posts.pin',
+        'events.create', 'events.delete', 'events.edit',
+        'users.manage', 'roles.manage', 'permissions.manage',
+        'admin.access',
+      };
+      _booting = false;
+      notifyListeners();
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token');
     if (token != null) {

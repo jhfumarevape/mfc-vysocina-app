@@ -74,7 +74,7 @@ mfc_app/web/firebase-config.js
 *.ipa
 
 # ─── Claude Code / settings ──────────────────────────────────────────
-.claude/settings.local.json
+.claude/
 
 # ─── Misc ────────────────────────────────────────────────────────────
 /tmp/

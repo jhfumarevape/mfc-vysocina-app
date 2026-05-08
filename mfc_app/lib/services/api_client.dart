@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../core/config.dart';
+import 'mock_data.dart';
 
 class ApiException implements Exception {
   final int statusCode;
@@ -48,11 +49,19 @@ class ApiClient {
   }
 
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
+    if (AppConfig.previewMode) {
+      final mock = MockData.get(path, query);
+      if (mock != null) return mock;
+    }
     final r = await http.get(_uri(path, query), headers: _headers());
     return _decode(r);
   }
 
   Future<dynamic> post(String path, [Map<String, dynamic>? body]) async {
+    if (AppConfig.previewMode) {
+      final mock = MockData.post(path, body);
+      if (mock != null) return mock;
+    }
     final r = await http.post(
       _uri(path),
       headers: _headers(jsonBody: true),
@@ -62,6 +71,7 @@ class ApiClient {
   }
 
   Future<dynamic> patch(String path, Map<String, dynamic> body) async {
+    if (AppConfig.previewMode) return body; // pretend update succeeded
     final r = await http.patch(
       _uri(path),
       headers: _headers(jsonBody: true),
@@ -71,6 +81,7 @@ class ApiClient {
   }
 
   Future<dynamic> delete(String path) async {
+    if (AppConfig.previewMode) return null; // pretend delete succeeded
     final r = await http.delete(_uri(path), headers: _headers());
     return _decode(r);
   }
