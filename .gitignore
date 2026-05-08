@@ -80,3 +80,6 @@ mfc_app/web/firebase-config.js
 /tmp/
 *.tar.gz
 *.zip
+
+# Runtime logs
+mfc-app/logs/
