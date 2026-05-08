@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
+
+const _kLastUsername = 'last_username';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -26,12 +30,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _busy = true; _error = null; });
     try {
+      final username = _username.text.trim();
       await context.read<AuthService>().register(
-        username: _username.text.trim(),
+        username: username,
         email: _email.text.trim(),
         password: _password.text,
         fullName: _fullName.text.trim(),
       );
+      // Pamatovat email pro příští login
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kLastUsername, username);
+      // Říct OS — uložit heslo do password manageru
+      TextInput.finishAutofillContext(shouldSave: true);
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -51,39 +61,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
-            child: Column(
+            child: AutofillGroup(
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextFormField(
                   controller: _fullName,
+                  autofillHints: const [AutofillHints.name],
+                  textCapitalization: TextCapitalization.words,
                   decoration: const InputDecoration(labelText: 'Jméno a příjmení'),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Vyplň jméno' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _username,
+                  autofillHints: const [AutofillHints.newUsername],
                   decoration: const InputDecoration(labelText: 'Uživatelské jméno (přezdívka)'),
                   validator: (v) => (v == null || v.trim().length < 3) ? 'Min 3 znaky' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _email,
-                  decoration: const InputDecoration(labelText: 'Email'),
+                  autofillHints: const [AutofillHints.email],
                   keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
                   validator: (v) => (v == null || !v.contains('@')) ? 'Neplatný email' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _password,
-                  decoration: const InputDecoration(labelText: 'Heslo'),
+                  autofillHints: const [AutofillHints.newPassword],
                   obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Heslo'),
                   validator: (v) => (v == null || v.length < 6) ? 'Min 6 znaků' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _password2,
-                  decoration: const InputDecoration(labelText: 'Heslo znovu'),
+                  autofillHints: const [AutofillHints.newPassword],
                   obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Heslo znovu'),
                   validator: (v) => (v != _password.text) ? 'Hesla se neshodují' : null,
                 ),
                 if (_error != null) ...[
@@ -105,6 +122,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     : const Text('Vytvořit účet'),
                 ),
               ],
+            ),
             ),
           ),
         ),
