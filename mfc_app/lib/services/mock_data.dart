@@ -186,8 +186,75 @@ class MockData {
       ];
     }
 
-    // Admin — list users
-    if (path == '/users' || path == '/admin/users') return _users;
+    // Admin — list users (s podporou ?online_only=true)
+    if (path == '/users' || path == '/admin/users') {
+      final onlineOnly = query?['online_only'] == 'true';
+      if (onlineOnly) {
+        // Online = lastSeen < 5 min — vraci jen ty
+        return _users.where((u) {
+          final ls = u['last_seen'] as String?;
+          if (ls == null) return false;
+          final dt = DateTime.parse(ls);
+          return DateTime.now().toUtc().difference(dt.toUtc()).inMinutes < 5;
+        }).toList();
+      }
+      return _users;
+    }
+
+    // Admin — celkové statistiky
+    if (path == '/admin/stats') {
+      return {
+        'total_users': _users.length,
+        'online_users': _users.where((u) {
+          final ls = u['last_seen'] as String?;
+          if (ls == null) return false;
+          return DateTime.now().toUtc().difference(DateTime.parse(ls).toUtc()).inMinutes < 5;
+        }).length,
+        'active_users_7d': _users.length,
+        'total_posts': 4,
+        'total_events': 4,
+        'total_messages': 5,
+      };
+    }
+
+    // Admin — eventy s rsvp_count (zjednodušená struktura)
+    if (path == '/admin/events') {
+      final all = get('/events') as List;
+      return all.map((e) => {
+        ...e as Map<String, dynamic>,
+        'rsvp_count': (e['going_count'] as int) + (e['maybe_count'] as int),
+      }).toList();
+    }
+
+    // Admin — skupiny s message_count + is_default
+    if (path == '/admin/groups') {
+      return [
+        {
+          'id': 1,
+          'name': 'MFC Vysočina — všichni',
+          'description': 'Hlavní kanál týmu',
+          'member_count': 12,
+          'message_count': 247,
+          'is_default': true,
+        },
+        {
+          'id': 2,
+          'name': 'Sestava A — boj',
+          'description': 'Hlavní bojová sestava',
+          'member_count': 5,
+          'message_count': 89,
+          'is_default': false,
+        },
+        {
+          'id': 3,
+          'name': 'Zbrojíři + servis',
+          'description': null,
+          'member_count': 4,
+          'message_count': 34,
+          'is_default': false,
+        },
+      ];
+    }
 
     return null; // not mocked → falls through to real network
   }
