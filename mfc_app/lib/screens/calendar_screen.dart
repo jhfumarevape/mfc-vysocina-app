@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme.dart';
 import '../models/event.dart';
@@ -222,58 +224,315 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-class _EventDetailScreen extends StatelessWidget {
+class _EventDetailScreen extends StatefulWidget {
   final Event event;
   final void Function(String status) onRSVP;
   const _EventDetailScreen({required this.event, required this.onRSVP});
 
   @override
+  State<_EventDetailScreen> createState() => _EventDetailScreenState();
+}
+
+class _EventDetailScreenState extends State<_EventDetailScreen> {
+  late Event _event;
+
+  @override
+  void initState() {
+    super.initState();
+    _event = widget.event;
+  }
+
+  Color get _typeColor {
+    switch (_event.eventType) {
+      case 'turnaj':  return Colors.amber;
+      case 'trening': return AppTheme.primary;
+      case 'sraz':    return Colors.blue;
+      default:        return AppTheme.textMuted;
+    }
+  }
+
+  Future<void> _setRSVP(String status) async {
+    try {
+      final updated = await context.read<ApiClient>().post(
+        '/events/${_event.id}/rsvp', {'status': status},
+      );
+      final newEvent = Event.fromJson(updated as Map<String, dynamic>);
+      setState(() => _event = newEvent);
+      widget.onRSVP(status); // notify parent list to update
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Chyba: $e'), backgroundColor: AppTheme.danger),
+      );
+    }
+  }
+
+  Future<void> _openMaps() async {
+    if (_event.location == null) return;
+    final encoded = Uri.encodeComponent(_event.location!);
+    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nelze otevřít mapy')),
+      );
+    }
+  }
+
+  Future<void> _shareICS() async {
+    final ics = _buildIcs(_event);
+    await Clipboard.setData(ClipboardData(text: ics));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('ICS zkopírován do schránky — vlož do kalendáře'),
+        backgroundColor: AppTheme.success,
+      ),
+    );
+  }
+
+  String _buildIcs(Event e) {
+    String fmt(DateTime dt) =>
+        '${dt.toUtc().toIso8601String().replaceAll(RegExp(r"[-:]"), "").substring(0, 15)}Z';
+    final end = e.endsAt ?? e.startsAt.add(const Duration(hours: 2));
+    return '''BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//MFC Vysocina//mfc-app//CS
+BEGIN:VEVENT
+UID:mfc-${e.id}@mfc-vysocina
+DTSTART:${fmt(e.startsAt)}
+DTEND:${fmt(end)}
+SUMMARY:${e.title}
+DESCRIPTION:${(e.description ?? '').replaceAll('\n', '\\n')}
+LOCATION:${e.location ?? ''}
+END:VEVENT
+END:VCALENDAR''';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final goingList = event.rsvps.where((r) => r.status == 'going').toList();
-    final maybeList = event.rsvps.where((r) => r.status == 'maybe').toList();
+    final goingList = _event.rsvps.where((r) => r.status == 'going').toList();
+    final maybeList = _event.rsvps.where((r) => r.status == 'maybe').toList();
+    final notGoingList = _event.rsvps.where((r) => r.status == 'not_going').toList();
     final df = DateFormat('EEEE d. MMMM y, HH:mm', 'cs');
 
     return Scaffold(
-      appBar: AppBar(title: Text(event.title)),
+      appBar: AppBar(
+        title: Text(_event.typeLabel),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_outlined),
+            tooltip: 'Přidat do kalendáře',
+            onPressed: _shareICS,
+          ),
+        ],
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text(event.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+          // Type badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: _typeColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_typeIcon, size: 14, color: _typeColor),
+                const SizedBox(width: 6),
+                Text(_event.typeLabel.toUpperCase(),
+                  style: TextStyle(color: _typeColor, fontWeight: FontWeight.w700, fontSize: 11)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(_event.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+
+          // Datum
+          _InfoRow(
+            icon: Icons.access_time,
+            label: 'Začátek',
+            value: df.format(_event.startsAt),
+          ),
+          if (_event.endsAt != null) ...[
+            const SizedBox(height: 8),
+            _InfoRow(
+              icon: Icons.timer_off_outlined,
+              label: 'Konec',
+              value: df.format(_event.endsAt!),
+            ),
+          ],
+          // Misto + tlacitko Mapy
+          if (_event.location != null) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _openMaps,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.place_outlined, size: 18, color: AppTheme.textMuted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Místo', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                          Text(_event.location!, style: const TextStyle(fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _openMaps,
+                      icon: const Icon(Icons.map_outlined, size: 16),
+                      label: const Text('Otevřít v mapách'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primary,
+                        side: const BorderSide(color: AppTheme.primary),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // Popis
+          if (_event.description != null && _event.description!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Text(_event.description!, style: const TextStyle(fontSize: 15, height: 1.4)),
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
+          // RSVP velka tlacitka
+          const Text('Jdeš?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textMuted)),
           const SizedBox(height: 8),
           Row(children: [
-            const Icon(Icons.access_time, size: 16, color: AppTheme.textMuted),
-            const SizedBox(width: 6),
-            Text(df.format(event.startsAt), style: const TextStyle(color: AppTheme.textMuted)),
+            Expanded(child: _BigRSVPButton(label: '✓ Jdu',  count: _event.goingCount, color: AppTheme.success, selected: _event.myStatus == 'going',     onTap: () => _setRSVP('going'))),
+            const SizedBox(width: 8),
+            Expanded(child: _BigRSVPButton(label: '? Možná', count: _event.maybeCount, color: AppTheme.warning, selected: _event.myStatus == 'maybe',     onTap: () => _setRSVP('maybe'))),
+            const SizedBox(width: 8),
+            Expanded(child: _BigRSVPButton(label: '✗ Nejdu', count: notGoingList.length, color: AppTheme.danger,  selected: _event.myStatus == 'not_going', onTap: () => _setRSVP('not_going'))),
           ]),
-          if (event.location != null) ...[
-            const SizedBox(height: 4),
-            Row(children: [
-              const Icon(Icons.place_outlined, size: 16, color: AppTheme.textMuted),
-              const SizedBox(width: 6),
-              Expanded(child: Text(event.location!, style: const TextStyle(color: AppTheme.textMuted))),
-            ]),
-          ],
-          if (event.description != null && event.description!.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text(event.description!),
-          ],
+
           const SizedBox(height: 24),
-          if (goingList.isNotEmpty) ...[
-            Text('Jde (${goingList.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            ...goingList.map((r) => ListTile(
-              leading: Avatar(user: r.user),
-              title: Text(r.user.displayName),
-              subtitle: r.note != null ? Text(r.note!) : null,
-              dense: true,
-            )),
-          ],
-          if (maybeList.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text('Možná (${maybeList.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.warning)),
-            const SizedBox(height: 8),
-            ...maybeList.map((r) => ListTile(leading: Avatar(user: r.user), title: Text(r.user.displayName), dense: true)),
-          ],
+
+          // Seznamy
+          if (goingList.isNotEmpty) _RSVPGroup(label: 'Jdou', color: AppTheme.success, rsvps: goingList),
+          if (maybeList.isNotEmpty) _RSVPGroup(label: 'Možná', color: AppTheme.warning, rsvps: maybeList),
+          if (notGoingList.isNotEmpty) _RSVPGroup(label: 'Nejdou', color: AppTheme.danger, rsvps: notGoingList),
+        ],
+      ),
+    );
+  }
+
+  IconData get _typeIcon => switch (_event.eventType) {
+    'turnaj' => Icons.emoji_events_outlined,
+    'trening' => Icons.fitness_center,
+    'sraz' => Icons.groups_outlined,
+    _ => Icons.event_outlined,
+  };
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  const _InfoRow({required this.icon, required this.label, required this.value});
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppTheme.textMuted),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+              Text(value, style: const TextStyle(fontSize: 14)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BigRSVPButton extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  const _BigRSVPButton({required this.label, required this.count, required this.color, required this.selected, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? color.withValues(alpha: 0.18) : AppTheme.surface,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: selected ? color : AppTheme.border, width: selected ? 1.5 : 1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            children: [
+              Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 14)),
+              Text('$count', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RSVPGroup extends StatelessWidget {
+  final String label;
+  final Color color;
+  final List<RSVP> rsvps;
+  const _RSVPGroup({required this.label, required this.color, required this.rsvps});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 0, 8),
+            child: Row(
+              children: [
+                Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Text('$label (${rsvps.length})',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+              ],
+            ),
+          ),
+          ...rsvps.map((r) => ListTile(
+            leading: Avatar(user: r.user, size: 36),
+            title: Text(r.user.displayName, style: const TextStyle(fontSize: 14)),
+            subtitle: r.note != null ? Text(r.note!, style: const TextStyle(fontSize: 12)) : null,
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          )),
         ],
       ),
     );

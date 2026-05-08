@@ -58,6 +58,64 @@ class PostOut(BaseModel):
     image_url: Optional[str]
     pinned: bool
     created_at: datetime
+    # Reakce (sečtené per emoji + co user kliknul)
+    reactions: dict[str, int] = Field(default_factory=dict)
+    my_reactions: list[str] = Field(default_factory=list)
+    # Komentáře — jen počet, plné na detail endpointu
+    comment_count: int = 0
+    # Volitelná anketa
+    poll: Optional["PollOut"] = None
+
+
+# ─── Comments ─────────────────────────────────────────────────────────
+
+class CommentCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=2000)
+
+
+class CommentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    post_id: int
+    author: UserOut
+    content: str
+    created_at: datetime
+
+
+# ─── Polls (anketa připojená k postu) ────────────────────────────────
+
+class PollOptionCreate(BaseModel):
+    label: str = Field(..., min_length=1, max_length=120)
+
+
+class PollCreate(BaseModel):
+    question: str = Field(..., min_length=1, max_length=255)
+    options: list[PollOptionCreate] = Field(..., min_length=2, max_length=10)
+    multiple_choice: bool = False
+    closes_at: Optional[datetime] = None
+
+
+class PollOptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    label: str
+    vote_count: int
+    voted: bool  # zda můj user kliknul tuhle
+
+
+class PollOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    question: str
+    multiple_choice: bool
+    closes_at: Optional[datetime]
+    total_votes: int
+    options: list[PollOptionOut]
+
+
+# Post create supports an optional inline poll.
+class PostCreateExtended(PostCreate):
+    poll: Optional[PollCreate] = None
 
 
 # ─── Events ───────────────────────────────────────────────────────────

@@ -55,6 +55,71 @@ class Post(Base):
     author = relationship("User", back_populates="posts")
 
 
+# ─── Post reactions & comments ────────────────────────────────────────
+
+class PostReaction(Base):
+    __tablename__ = "post_reactions"
+    __table_args__ = (UniqueConstraint("post_id", "user_id", "emoji"),)
+
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    emoji = Column(String(20), nullable=False)  # 👍 ❤️ 💪 😄 🛡️ ⚔️ 🏆
+    created_at = Column(DateTime, default=utcnow)
+
+
+class PostComment(Base):
+    __tablename__ = "post_comments"
+    __table_args__ = (Index("ix_post_comments_post_time", "post_id", "created_at"),)
+
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utcnow, index=True)
+
+    author = relationship("User")
+
+
+# ─── Polls (anketu připojená k postu) ─────────────────────────────────
+
+class Poll(Base):
+    __tablename__ = "polls"
+
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), unique=True, nullable=False)
+    question = Column(String(255), nullable=False)
+    multiple_choice = Column(Boolean, default=False)
+    closes_at = Column(DateTime)  # volitelné — po kdy lze hlasovat
+    created_at = Column(DateTime, default=utcnow)
+
+    options = relationship("PollOption", back_populates="poll", cascade="all, delete-orphan", order_by="PollOption.sort_order")
+
+
+class PollOption(Base):
+    __tablename__ = "poll_options"
+
+    id = Column(Integer, primary_key=True)
+    poll_id = Column(Integer, ForeignKey("polls.id", ondelete="CASCADE"), nullable=False)
+    label = Column(String(120), nullable=False)
+    sort_order = Column(Integer, default=0)
+
+    poll = relationship("Poll", back_populates="options")
+    votes = relationship("PollVote", back_populates="option", cascade="all, delete-orphan")
+
+
+class PollVote(Base):
+    __tablename__ = "poll_votes"
+    __table_args__ = (UniqueConstraint("option_id", "user_id"),)
+
+    id = Column(Integer, primary_key=True)
+    option_id = Column(Integer, ForeignKey("poll_options.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+    option = relationship("PollOption", back_populates="votes")
+
+
 # ─── Calendar events ──────────────────────────────────────────────────
 
 class Event(Base):
