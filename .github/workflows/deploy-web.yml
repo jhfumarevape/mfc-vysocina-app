@@ -37,7 +37,16 @@ jobs:
         run: flutter pub get
 
       - name: Build web (with base href for Pages)
-        run: flutter build web --release --base-href "/mfc-vysocina-app/"
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          WS_BASE_URL: ${{ vars.WS_BASE_URL }}
+          PREVIEW_MODE: ${{ vars.PREVIEW_MODE }}
+        run: |
+          flutter build web --release \
+            --base-href "/mfc-vysocina-app/" \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=WS_BASE_URL="$WS_BASE_URL" \
+            --dart-define=PREVIEW_MODE="$PREVIEW_MODE"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
