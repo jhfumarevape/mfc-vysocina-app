@@ -72,17 +72,30 @@ def create_group(
     db: Session = Depends(get_db),
     user=Depends(require_permission("groups.create")),
 ):
-    g = Group(name=payload.name, description=payload.description, created_by_id=user.id)
+    g = Group(
+        name=payload.name,
+        description=payload.description,
+        created_by_id=user.id,
+        is_default=payload.is_default,
+    )
     db.add(g)
     db.flush()
     # Always add creator as admin member
     db.add(GroupMember(group_id=g.id, user_id=user.id, is_admin=True))
-    # Add other members
-    if payload.member_ids:
+
+    if payload.is_default:
+        # Default skupina → přidej úplně všechny aktivní uživatele,
+        # at vidi chat hned od ted (a nejen ti, co se pak zaregistruji).
+        all_users = db.query(User).filter(User.is_active == True, User.id != user.id).all()
+        for u in all_users:
+            db.add(GroupMember(group_id=g.id, user_id=u.id))
+    elif payload.member_ids:
+        # Manualne vybrani clenove
         for uid in payload.member_ids:
             if uid == user.id:
                 continue
             db.add(GroupMember(group_id=g.id, user_id=uid))
+
     db.commit()
     db.refresh(g)
     g = db.query(Group).options(joinedload(Group.members)).filter(Group.id == g.id).first()

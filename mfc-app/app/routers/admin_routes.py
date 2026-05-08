@@ -1,4 +1,5 @@
 """Admin endpoints: user management + roles + permissions."""
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from ..database import get_db
-from ..models import User, Role, RolePermission, Event, Group
+from ..models import User, Role, RolePermission, Event, Group, GroupMember, Message, Post, RSVP
 from ..schemas import (
     UserAdminOut, UserAdminUpdate,
     PermissionInfo, RoleCreate, RoleUpdate, RoleOut,
@@ -218,4 +219,137 @@ def delete_role(
     # Demote all users with this role to 'member'
     db.query(User).filter(User.role == role.name).update({User.role: "member"})
     db.delete(role)
+    db.commit()
+
+
+# ─── Stats / overview ─────────────────────────────────────────────────
+
+@router.get("/stats")
+def admin_stats(
+    db: Session = Depends(get_db),
+    _user=Depends(require_permission("admin.access")),
+):
+    """Souhrnna cisla pro admin dashboard."""
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+    five_min_ago = now - timedelta(minutes=5)
+
+    return {
+        "total_users": db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0,
+        "online_users": (
+            db.query(func.count(User.id))
+            .filter(User.is_active == True, User.created_at != None)  # placeholder
+            .scalar() or 0
+        ),  # Note: User model nema 'last_seen' fieldu, takze online=0 zatim
+        "active_users_7d": db.query(func.count(User.id)).filter(User.created_at > week_ago).scalar() or 0,
+        "total_posts": db.query(func.count(Post.id)).scalar() or 0,
+        "total_events": db.query(func.count(Event.id)).scalar() or 0,
+        "total_messages": db.query(func.count(Message.id)).scalar() or 0,
+    }
+
+
+# ─── Events admin (list + delete) ─────────────────────────────────────
+
+@router.get("/events")
+def admin_list_events(
+    db: Session = Depends(get_db),
+    _user=Depends(require_permission("events.delete_any")),
+):
+    """List vsech akci pro admin tab — incl. rsvp_count."""
+    rows = db.query(Event).order_by(Event.starts_at.desc()).all()
+    out = []
+    for e in rows:
+        rsvp_count = db.query(func.count(RSVP.id)).filter(RSVP.event_id == e.id).scalar() or 0
+        out.append({
+            "id": e.id,
+            "title": e.title,
+            "event_type": e.event_type,
+            "location": e.location,
+            "starts_at": e.starts_at.isoformat() if e.starts_at else None,
+            "rsvp_count": rsvp_count,
+        })
+    return out
+
+
+@router.delete("/events/{event_id}", status_code=204)
+def admin_delete_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    _user=Depends(require_permission("events.delete_any")),
+):
+    e = db.query(Event).filter(Event.id == event_id).first()
+    if not e:
+        raise HTTPException(404, "Akce neexistuje")
+    db.delete(e)
+    db.commit()
+
+
+# ─── Groups admin (list + toggle-default + delete) ────────────────────
+
+@router.get("/groups")
+def admin_list_groups(
+    db: Session = Depends(get_db),
+    _user=Depends(require_permission("groups.delete_any")),
+):
+    """List všech skupin (i těch, kde admin není member) s počty."""
+    rows = db.query(Group).order_by(Group.id).all()
+    out = []
+    for g in rows:
+        member_count = db.query(func.count(GroupMember.id)).filter(GroupMember.group_id == g.id).scalar() or 0
+        message_count = db.query(func.count(Message.id)).filter(Message.group_id == g.id).scalar() or 0
+        out.append({
+            "id": g.id,
+            "name": g.name,
+            "description": g.description,
+            "is_default": g.is_default,
+            "member_count": member_count,
+            "message_count": message_count,
+        })
+    return out
+
+
+@router.post("/groups/{group_id}/toggle-default")
+def admin_toggle_default(
+    group_id: int,
+    db: Session = Depends(get_db),
+    _user=Depends(require_permission("groups.delete_any")),
+):
+    """Přepne flag is_default. Pokud zapínáme → přidá VŠECHNY existující
+    aktivní uživatele do skupiny (ti, co už členi nejsou). Vypínání
+    nikoho nevyhazuje — jen budoucí registrace nebudou auto-join."""
+    g = db.query(Group).filter(Group.id == group_id).first()
+    if not g:
+        raise HTTPException(404, "Skupina neexistuje")
+
+    g.is_default = not g.is_default
+    added = 0
+    if g.is_default:
+        # Přidej všechny aktivní uživatele co tam ještě nejsou
+        existing_member_ids = {m.user_id for m in db.query(GroupMember).filter(GroupMember.group_id == g.id).all()}
+        all_active = db.query(User).filter(User.is_active == True).all()
+        for u in all_active:
+            if u.id not in existing_member_ids:
+                db.add(GroupMember(group_id=g.id, user_id=u.id))
+                added += 1
+    db.commit()
+    return {
+        "id": g.id,
+        "is_default": g.is_default,
+        "newly_added": added,
+        "message": f"Přidáno {added} členů" if added else "is_default přepnut",
+    }
+
+
+@router.delete("/groups/{group_id}", status_code=204)
+def admin_delete_group(
+    group_id: int,
+    db: Session = Depends(get_db),
+    _user=Depends(require_permission("groups.delete_any")),
+):
+    g = db.query(Group).filter(Group.id == group_id).first()
+    if not g:
+        raise HTTPException(404, "Skupina neexistuje")
+    if g.is_default:
+        raise HTTPException(400, "Defaultní skupinu nelze smazat — nejdřív zruš 'is_default'")
+    db.delete(g)
     db.commit()

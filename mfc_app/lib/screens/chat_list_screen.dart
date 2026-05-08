@@ -169,60 +169,126 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
 
     final myId = context.read<AuthService>().user?.id;
-    final selected = <int>{};
+    // Defaultně označit všechny ostatní uživatele
+    final selected = <int>{
+      for (final u in allUsers)
+        if (u.id != myId) u.id,
+    };
+    bool isDefault = false;
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          backgroundColor: AppTheme.surface,
-          title: const Text('Nová chat skupina'),
-          content: SizedBox(
-            width: 400,
-            child: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Název skupiny'),
-                  autofocus: true,
+        builder: (ctx, setState) {
+          final others = allUsers.where((u) => u.id != myId).toList();
+          return AlertDialog(
+            backgroundColor: AppTheme.surface,
+            title: const Text('Nová chat skupina'),
+            content: SizedBox(
+              width: 400,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Název skupiny'),
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: descCtrl,
+                      decoration: const InputDecoration(labelText: 'Popis (volitelné)'),
+                    ),
+                    const SizedBox(height: 16),
+                    // Default-skupina toggle
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDefault ? AppTheme.primary.withValues(alpha: 0.1) : AppTheme.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isDefault ? AppTheme.primary : AppTheme.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.public, size: 18, color: isDefault ? AppTheme.primary : AppTheme.textMuted),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Hlavní skupina týmu', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Všichni členové (i nově registrovaní) v ní budou automaticky.',
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: isDefault,
+                            activeColor: AppTheme.primary,
+                            onChanged: (v) => setState(() => isDefault = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!isDefault) ...[
+                      const SizedBox(height: 16),
+                      Row(children: [
+                        Text('Členové (${selected.length} z ${others.length})', style: const TextStyle(color: AppTheme.textMuted)),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            if (selected.length == others.length) {
+                              selected.clear();
+                            } else {
+                              selected
+                                ..clear()
+                                ..addAll(others.map((u) => u.id));
+                            }
+                          }),
+                          child: Text(
+                            selected.length == others.length ? 'Zrušit výběr' : 'Vybrat všechny',
+                            style: const TextStyle(color: AppTheme.primary),
+                          ),
+                        ),
+                      ]),
+                      ...others.map((u) => CheckboxListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text(u.fullName ?? u.username),
+                            subtitle: Text('@${u.username}', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                            value: selected.contains(u.id),
+                            activeColor: AppTheme.primary,
+                            onChanged: (v) => setState(() {
+                              if (v == true) {
+                                selected.add(u.id);
+                              } else {
+                                selected.remove(u.id);
+                              }
+                            }),
+                          )),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descCtrl,
-                  decoration: const InputDecoration(labelText: 'Popis (volitelné)'),
-                ),
-                const SizedBox(height: 16),
-                const Text('Členové', style: TextStyle(color: AppTheme.textMuted)),
-                ...allUsers.where((u) => u.id != myId).map((u) => CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(u.fullName ?? u.username),
-                  subtitle: Text('@${u.username}', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-                  value: selected.contains(u.id),
-                  activeColor: AppTheme.primary,
-                  onChanged: (v) => setState(() {
-                    if (v == true) {
-                      selected.add(u.id);
-                    } else {
-                      selected.remove(u.id);
-                    }
-                  }),
-                )),
-              ]),
+              ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Zrušit')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Vytvořit', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Zrušit')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Vytvořit', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
       ),
     );
 
@@ -235,9 +301,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
       await api.post('/groups', {
         'name': nameCtrl.text.trim(),
         'description': descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
-        'member_ids': selected.toList(),
+        'is_default': isDefault,
+        if (!isDefault) 'member_ids': selected.toList(),
       });
-      _showOk('Skupina vytvořena');
+      _showOk(isDefault ? 'Hlavní skupina vytvořena, všichni přidáni' : 'Skupina vytvořena');
       _load();
     } catch (e) {
       _showError('Chyba: $e');

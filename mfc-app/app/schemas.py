@@ -172,6 +172,7 @@ class GroupCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
     member_ids: Optional[List[int]] = None  # users to add at creation
+    is_default: bool = False  # default skupiny — auto-join nově registrovaných
 
 
 class GroupOut(BaseModel):
