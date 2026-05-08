@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -23,7 +24,12 @@ class UpdateInfo {
 }
 
 class UpdateChecker extends ChangeNotifier {
-  static const String currentVersion = '0.1.0';
+  /// Verze tohohle buildu — předáno workflow přes `--dart-define=APP_VERSION=0.1.0+N`.
+  /// Default je hodnota z pubspec.yaml (pro lokální dev build bez flagu).
+  static const String currentVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: '0.1.0+1',
+  );
 
   UpdateInfo? _info;
   bool _checking = false;
@@ -37,34 +43,30 @@ class UpdateChecker extends ChangeNotifier {
   bool get hasUpdate => _info?.updateAvailable ?? false;
 
   Future<void> check() async {
+    // Web build nelze instalovat APK — kontrola verze pro něj nemá smysl.
+    if (kIsWeb) return;
     _checking = true;
     notifyListeners();
     try {
       final res = await http.get(Uri.parse('${AppConfig.apiBaseUrl}/api/version'));
       if (res.statusCode == 200) {
-        final data = res.body;
-        // simple JSON parse
-        final latest = _extract(data, 'latest_version') ?? '0.0.0';
-        final url = _extract(data, 'download_url') ?? '/api/download/apk';
-        final notes = _extract(data, 'release_notes') ?? '';
+        final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        final latest = (data['latest_version'] as String?) ?? '0.0.0';
+        final url = (data['download_url'] as String?) ?? '';
+        final notes = (data['release_notes'] as String?) ?? '';
         _info = UpdateInfo(
           latestVersion: latest,
           downloadUrl: url,
           releaseNotes: notes,
-          updateAvailable: _isNewer(latest, currentVersion),
+          updateAvailable: url.isNotEmpty && _isNewer(latest, currentVersion),
         );
       }
     } catch (_) {
-      // ignore network errors
+      // ignore network errors — banner se prostě nezobrazí
     } finally {
       _checking = false;
       notifyListeners();
     }
-  }
-
-  static String? _extract(String json, String key) {
-    final m = RegExp('"$key"\\s*:\\s*"([^"]*)"').firstMatch(json);
-    return m?.group(1);
   }
 
   static bool _isNewer(String latest, String current) {
@@ -86,7 +88,9 @@ class UpdateChecker extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final url = AppConfig.apiBaseUrl + _info!.downloadUrl;
+      // download_url může být absolutní (GitHub Release) nebo relativní (vlastní backend)
+      final raw = _info!.downloadUrl;
+      final url = raw.startsWith('http') ? raw : (AppConfig.apiBaseUrl + raw);
       final dir = await getExternalStorageDirectory() ?? await getTemporaryDirectory();
       final file = File('${dir.path}/mfc-vysocina-${_info!.latestVersion}.apk');
 

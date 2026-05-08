@@ -55,7 +55,8 @@ jobs:
             --build-number=${{ github.run_number }} \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=WS_BASE_URL="$WS_BASE_URL" \
-            --dart-define=PREVIEW_MODE="$PREVIEW_MODE"
+            --dart-define=PREVIEW_MODE="$PREVIEW_MODE" \
+            --dart-define=APP_VERSION="${{ steps.ver.outputs.version }}+${{ github.run_number }}"
 
       - name: Rename APK
         run: |
