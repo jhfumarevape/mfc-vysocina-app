@@ -9,6 +9,7 @@ import '../models/event.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../widgets/avatar.dart';
+import '../widgets/profile_app_bar_action.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -64,7 +65,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kalendář'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          const ProfileAppBarAction(),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.primary,

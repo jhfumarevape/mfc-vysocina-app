@@ -17,7 +17,7 @@ from .database import engine, Base, SessionLocal
 from .models import User, Group, GroupMember, Message, Role, RolePermission
 from .schemas import MessageOut
 from .permissions import DEFAULT_ROLE_PERMISSIONS, SYSTEM_ROLES
-from .routers import auth_routes, posts_routes, events_routes, groups_routes, upload_routes, admin_routes, version_routes
+from .routers import auth_routes, posts_routes, events_routes, groups_routes, upload_routes, admin_routes, version_routes, tactics_routes, rules_routes
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -89,6 +89,8 @@ app.include_router(upload_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(admin_routes.me_router)  # /auth/me/permissions
 app.include_router(version_routes.router)   # /api/version
+app.include_router(tactics_routes.router)
+app.include_router(rules_routes.router)
 
 # Admin web UI (single-page HTML, served at /admin)
 ADMIN_DIR = BASE_DIR / "admin_ui"

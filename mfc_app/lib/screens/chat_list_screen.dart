@@ -7,6 +7,7 @@ import '../models/group.dart';
 import '../models/user.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../widgets/profile_app_bar_action.dart';
 import 'chat_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
@@ -45,7 +46,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chat'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          const ProfileAppBarAction(),
+        ],
       ),
       body: RefreshIndicator(color: AppTheme.primary, onRefresh: _load, child: _build()),
       floatingActionButton: canCreate

@@ -13,6 +13,7 @@ import '../models/user.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../widgets/avatar.dart';
+import '../widgets/profile_app_bar_action.dart';
 import 'post_detail_screen.dart';
 
 /// Povolená emoji — musí odpovídat ALLOWED_EMOJI v backendu.
@@ -69,6 +70,7 @@ class _FeedScreenState extends State<FeedScreen> {
         title: const Text('Domů'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          const ProfileAppBarAction(),
         ],
       ),
       floatingActionButton: FloatingActionButton(

@@ -166,6 +166,68 @@ class EventOut(BaseModel):
     my_status: Optional[str] = None  # "going", "maybe", "not_going", or None
 
 
+# ─── Tactics (videa) ──────────────────────────────────────────────────
+
+class TacticCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = None
+    video_url: str = Field(..., min_length=1, max_length=500)
+    thumbnail_url: Optional[str] = None
+    category: Optional[str] = None
+    sort_order: int = 0
+
+
+class TacticUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    video_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    category: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class TacticOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    description: Optional[str]
+    video_url: str
+    thumbnail_url: Optional[str]
+    category: Optional[str]
+    sort_order: int
+    created_at: datetime
+
+
+# ─── Rules (pravidla buhurtu) ─────────────────────────────────────────
+
+class RuleCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1)
+    category: Optional[str] = None
+    document_url: Optional[str] = None
+    sort_order: int = 0
+
+
+class RuleUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    category: Optional[str] = None
+    document_url: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class RuleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    content: str
+    category: Optional[str]
+    document_url: Optional[str]
+    sort_order: int
+    updated_at: datetime
+    created_at: datetime
+
+
 # ─── Groups & Messages ────────────────────────────────────────────────
 
 class GroupCreate(BaseModel):

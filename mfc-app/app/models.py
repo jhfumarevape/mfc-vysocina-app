@@ -199,6 +199,37 @@ class Message(Base):
     author = relationship("User", back_populates="messages")
 
 
+# ─── Tactics (videa s taktikami) ──────────────────────────────────────
+
+class Tactic(Base):
+    __tablename__ = "tactics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    video_url = Column(String(500), nullable=False)  # YouTube/Vimeo/přímý odkaz
+    thumbnail_url = Column(String(500))  # volitelný custom náhled (jinak se vezme z YouTube)
+    category = Column(String(50))  # např. "5v5", "duely", "pohyb", "obrana"
+    sort_order = Column(Integer, default=0)
+    created_by_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=utcnow)
+
+
+# ─── Rules (aktuální pravidla buhurtu) ────────────────────────────────
+
+class Rule(Base):
+    __tablename__ = "rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)  # markdown
+    category = Column(String(50))  # "obecná", "5v5", "duely", "vybavení", "bezpečnost"
+    sort_order = Column(Integer, default=0)
+    document_url = Column(String(500))  # volitelný odkaz na PDF/web s plným zněním
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    created_at = Column(DateTime, default=utcnow)
+
+
 # ─── Roles & Permissions ──────────────────────────────────────────────
 
 class Role(Base):

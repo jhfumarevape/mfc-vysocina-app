@@ -9,7 +9,8 @@ import '../services/update_checker.dart';
 import 'feed_screen.dart';
 import 'calendar_screen.dart';
 import 'chat_list_screen.dart';
-import 'profile_screen.dart';
+import 'tactics_screen.dart';
+import 'rules_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -119,7 +120,8 @@ class _MainShellState extends State<MainShell> {
                     FeedScreen(),
                     CalendarScreen(),
                     ChatListScreen(),
-                    ProfileScreen(),
+                    TacticsScreen(),
+                    RulesScreen(),
                   ],
                 ),
               ),
@@ -128,11 +130,15 @@ class _MainShellState extends State<MainShell> {
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _index,
             onTap: (i) => setState(() => _index = i),
+            type: BottomNavigationBarType.fixed,
+            selectedFontSize: 11,
+            unselectedFontSize: 11,
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Domů'),
               BottomNavigationBarItem(icon: Icon(Icons.calendar_today_outlined), activeIcon: Icon(Icons.calendar_today), label: 'Kalendář'),
               BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), activeIcon: Icon(Icons.chat_bubble), label: 'Chat'),
-              BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profil'),
+              BottomNavigationBarItem(icon: Icon(Icons.play_circle_outline), activeIcon: Icon(Icons.play_circle), label: 'Taktiky'),
+              BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book), label: 'Pravidla'),
             ],
           ),
         ),

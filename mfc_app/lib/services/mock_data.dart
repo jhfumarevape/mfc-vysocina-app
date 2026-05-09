@@ -256,6 +256,92 @@ class MockData {
       ];
     }
 
+    // Tactics
+    if (path == '/tactics') {
+      return [
+        {
+          'id': 1,
+          'title': 'Štít a meč — pohyb v sestavě',
+          'description': 'Základní pohybové vzory ve čtyřčlenné sestavě, dynamické přesouvání těžiště.',
+          'video_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          'thumbnail_url': null,
+          'category': '5v5',
+          'sort_order': 1,
+          'created_at': _iso(DateTime.now().subtract(const Duration(days: 5))),
+        },
+        {
+          'id': 2,
+          'title': 'Duel — odkrývání obrany protivníka',
+          'description': 'Falešný útok, čtení reakce, rychlý finální zásah.',
+          'video_url': 'https://www.youtube.com/watch?v=oHg5SJYRHA0',
+          'thumbnail_url': null,
+          'category': 'duely',
+          'sort_order': 1,
+          'created_at': _iso(DateTime.now().subtract(const Duration(days: 12))),
+        },
+        {
+          'id': 3,
+          'title': 'Obrana proti dvěma protivníkům',
+          'description': 'Jak se otáčet, využít prostor a získat čas pro spolubojovníky.',
+          'video_url': 'https://www.youtube.com/watch?v=jNQXAC9IVRw',
+          'thumbnail_url': null,
+          'category': 'obrana',
+          'sort_order': 2,
+          'created_at': _iso(DateTime.now().subtract(const Duration(days: 30))),
+        },
+      ];
+    }
+
+    // Rules
+    if (path == '/rules') {
+      return [
+        {
+          'id': 1,
+          'title': '5v5 — základní pravidla zápasu',
+          'content':
+              '## Cíl zápasu\n\nVyřadit všechny protivníky tím, že je dostanete na zem (3. bod kontaktu).\n\n## Délka\n\n- Maximálně **5 minut** za zápas\n- Při remíze pokračuje **náhlá smrt**\n\n## Zakázané techniky\n\n- údery do týlu nebo zezadu na hlavu\n- kopy do vnitřku stehen\n- záměrné páčení loktů či kolen',
+          'category': '5v5',
+          'document_url': null,
+          'sort_order': 1,
+          'updated_at': _iso(DateTime.now().subtract(const Duration(days: 7))),
+          'created_at': _iso(DateTime.now().subtract(const Duration(days: 60))),
+        },
+        {
+          'id': 2,
+          'title': 'Vybavení — povinná zbroj',
+          'content':
+              '## Hlava\n\n- helma plně chránící hlavu i krk\n- vnitřní polstrování min. 1 cm\n\n## Tělo\n\n- kyrys nebo brigantina kryjící hrudník + záda\n- chrániče loktů a kolen\n\n## Ruce\n\n- ocelové rukavice (mitons / hourglass)\n\n> **Bez kompletní zbroje není povolen vstup do bojové zóny.**',
+          'category': 'vybavení',
+          'document_url': null,
+          'sort_order': 1,
+          'updated_at': _iso(DateTime.now().subtract(const Duration(days: 14))),
+          'created_at': _iso(DateTime.now().subtract(const Duration(days: 90))),
+        },
+        {
+          'id': 3,
+          'title': 'Duely — bodový systém',
+          'content':
+              '## Body za zásah\n\n- **1 bod** — čistý zásah na ruku/nohu\n- **2 body** — zásah na trup\n- **3 body** — zásah na hlavu\n\n## Limit\n\nVítězí ten, kdo dosáhne **15 bodů**, nebo má víc bodů po 3 minutách.',
+          'category': 'duely',
+          'document_url': null,
+          'sort_order': 1,
+          'updated_at': _iso(DateTime.now().subtract(const Duration(days: 3))),
+          'created_at': _iso(DateTime.now().subtract(const Duration(days: 30))),
+        },
+        {
+          'id': 4,
+          'title': 'Bezpečnost na tréninku',
+          'content':
+              '## Před tréninkem\n\n- zkontroluj zbroj — žádné prasklé řemínky, uvolněné nýty\n- zahřej si zápěstí, ramena, krk\n\n## Při tréninku\n\n- vždy hlas zranění hned\n- nepokračuj přes bolest\n- v páru — domluvte se na intenzitě',
+          'category': 'bezpečnost',
+          'document_url': null,
+          'sort_order': 1,
+          'updated_at': _iso(DateTime.now().subtract(const Duration(days: 1))),
+          'created_at': _iso(DateTime.now().subtract(const Duration(days: 45))),
+        },
+      ];
+    }
+
     return null; // not mocked → falls through to real network
   }
 
